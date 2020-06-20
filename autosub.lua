@@ -126,6 +126,12 @@ function control_downloads()
     mp.set_property('sub-auto', 'fuzzy')
     -- Set subtitle language preference:
     mp.set_property('slang', languages[1][2])
+
+    -- No reason to trigger subtitle reactivation for audio tracks:
+    if is_audio() then
+        return
+    end
+
     mp.msg.warn('Reactivate external subtitle files:')
     mp.commandv('rescan_external_files')
     directory, filename = utils.split_path(mp.get_property('path'))
@@ -162,7 +168,6 @@ end
 -- Check if subtitles should be auto-downloaded:
 function autosub_allowed()
     local duration = tonumber(mp.get_property('duration'))
-    local active_format = mp.get_property('file-format')
 
     if not bools.auto then
         mp.msg.warn('Automatic downloading disabled!')
@@ -174,19 +179,7 @@ function autosub_allowed()
     elseif directory:find('^http') then
         mp.msg.warn('Automatic subtitle downloading is disabled for web streaming')
         return false
-    elseif active_format:find('^cue') then
-        mp.msg.warn('Automatic subtitle downloading is disabled for cue files')
-        return false
     else
-        local not_allowed = {'aiff', 'ape', 'flac', 'mp3', 'ogg', 'wav', 'wv'}
-
-        for _, file_format in pairs(not_allowed) do
-            if file_format == active_format then
-                mp.msg.warn('Automatic subtitle downloading is disabled for audio files')
-                return false
-            end
-        end
-
         for _, exclude in pairs(excludes) do
             local escaped_exclude = exclude:gsub('%W','%%%0')
             local excluded = directory:find(escaped_exclude)
@@ -210,6 +203,26 @@ function autosub_allowed()
     end
 
     return true
+end
+
+-- Check if audio file is launched:
+function is_audio()
+    local active_format = mp.get_property('file-format')
+    if active_format:find('^cue') then
+        mp.msg.warn('Automatic subtitle downloading is disabled for cue files')
+        return true
+    else
+        local not_allowed = {'aiff', 'ape', 'flac', 'mp3', 'ogg', 'wav', 'wv'}
+
+        for _, file_format in pairs(not_allowed) do
+            if file_format == active_format then
+                mp.msg.warn('Automatic subtitle downloading is disabled for audio files')
+                return true
+            end
+        end
+     end
+
+    return false
 end
 
 -- Check if subtitles should be downloaded in this language:
